@@ -27,9 +27,8 @@ class ChecksProcessor
     /**
      * Constructor.
      * 
-     * @param string $plugin_name The name of the plugin supervised by the checker
      */
-    public function __construct( string $plugin_name )
+    public function __construct()
     {
         $this->init_hooks();
     }
@@ -54,12 +53,11 @@ class ChecksProcessor
     /**
      * Initialize processor with WordPress
      * 
-     * @param string $plugin_name The name of the plugin supervised by the checker
      */
-    public static function init( string $plugin_name )
+    public static function init()
     {
         if ( self::$instance === null ) {
-            self::$instance = new self( $plugin_name );
+            self::$instance = new self();
         }
 
         // Custom action for checker initialization
@@ -69,12 +67,35 @@ class ChecksProcessor
     }
 
     /**
+     * Sorts the defined checks into an indexed array to update the global checks attribute
+     * 
+     * @var Check[] $checks The defined checks
+     */
+    public function sort_checks( $checks )
+    {
+        $check_namespaces = [];
+
+        foreach( $checks as $check )
+        {
+            if ( !isset( $check_namespaces[ $check->called_from ] ) ) {
+                $check_namespaces[ $check->called_from ] = [ $check ];
+            }
+            else {
+                $check_namespaces[ $check->called_from ][] = $check;
+            }
+        }
+
+        return $check_namespaces;
+    }
+
+    /**
      * Registers the different plugin checks to supervise
      */
     public function add_checks()
     {
         $checks         = apply_filters( "plubo/checks", [] );
-        $this->checks   = is_array( $checks ) ? $checks : [];
+
+        $this->checks   = is_array( $checks ) ? $this->sort_checks( $checks ) : [];
     }
 
     /**
@@ -164,14 +185,14 @@ class ChecksProcessor
         foreach( $this->checks as $plugin_name => $checks ):
             $group_status = $this->get_check_status( $checks );
         ?>
-            <div id="health-check-debug" class="health-check-accordion">
+            <div id="health-check-<?php echo $plugin_name; ?>" class="health-check-accordion">
                 <h3 class="health-check-accordion-heading">
-                    <button aria-expanded="false" class="health-check-accordion-trigger" aria-controls="health-check-accordion-block-wp-core" type="button">
+                    <button aria-expanded="false" class="health-check-accordion-trigger" aria-controls="health-check-accordion-block-<?php echo $plugin_name; ?>" type="button">
                         <span class="icon"></span>
-                        <span class="title" style="display: flex; align-items: center; gap: 0.5rem;"><?php $this->display_status_icon( $group_status ); ?> <?php echo $plugin_name ?></span>
+                        <span class="title" style="display: flex; align-items: center; gap: 0.5rem;"><?php $this->display_status_icon( $group_status ); ?> <?php echo ucwords( str_replace( '-', ' ' , $plugin_name ) ) ?></span>
                     </button>
                 </h3>
-                <div id="health-check-accordion-block-wp-core" class="health-check-accordion-panel" hidden="hidden">
+                <div id="health-check-accordion-block-<?php echo $plugin_name; ?>" class="health-check-accordion-panel" hidden="hidden">
                     <table class="widefat striped health-check-table" role="presentation">
                         <tbody>
                             <?php foreach( $checks as $check ): ?>
