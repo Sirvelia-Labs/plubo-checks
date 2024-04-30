@@ -17,14 +17,12 @@
 define('PLUBO_CHECKS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 require_once PLUBO_CHECKS_PLUGIN_DIR . 'vendor/autoload.php';
 
-// use PluboChecks\Check;
-// PluboChecks\ChecksProcessor::init( 'test' );
-// add_filter('plubo/checks', function( $checks ) {
-//     $checks['test'][] = new Check(
-//         'EXAMPLE_ENV_VARIABLE',
-//         Check::$TYPE_ENV,
-//         Check::$WARNING,
-//         'Check for testing'
-//     );
-//     return $checks;
-// });
+use PluboChecks\Checks\EnvCheck;
+PluboChecks\ChecksProcessor::init( 'plugin-name' );
+add_filter('plubo/checks', function( $checks ) {
+    $checks['plugin-name'][] = new EnvCheck(
+        'EXAMPLE_ENV_VARIABLE',
+        'Check for testing'
+    );
+    return $checks;
+});

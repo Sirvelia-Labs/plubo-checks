@@ -2,7 +2,7 @@
 
 namespace PluboChecks;
 
-use PluboChecks\Check;
+use PluboChecks\Checks\Check;
 
 // Processor class
 class ChecksProcessor
@@ -11,25 +11,11 @@ class ChecksProcessor
     private static $PLUBO_CHECKS_SITE_HEALTH_TAB = 'plubo-checks-tab';
 
     /**
-     * The plugin supervised by the checker.
-     * 
-     * @var string
-     */
-    private $plugin = '';
-
-    /**
      * The checks performed by the checker.
      * 
-     * @var Check[]
+     * @var Check[][]
      */
     private $checks = [];
-
-    /**
-     * The general status of the plugin supervised by the checker.
-     * 
-     * @var string
-     */
-    private $status;
 
     /**
      * The checker instance.
@@ -45,7 +31,6 @@ class ChecksProcessor
      */
     public function __construct( string $plugin_name )
     {
-        $this->plugin = $plugin_name;
         $this->init_hooks();
     }
 
@@ -89,9 +74,7 @@ class ChecksProcessor
     public function add_checks()
     {
         $checks         = apply_filters( "plubo/checks", [] );
-        $this->checks   = is_array( $checks ) ? $checks[$this->plugin] ?? [] : [];
-        
-        $this->sync_check_status();
+        $this->checks   = is_array( $checks ) ? $checks : [];
     }
 
     /**
@@ -134,21 +117,21 @@ class ChecksProcessor
     }
 
     /**
-     * After getting the plugin checks, it syncs the general status with the passed / failed checks
+     * After getting the plugin checks, it gets the general status with the passed / failed checks
      */
-    private function sync_check_status()
+    private function get_check_status( $checks )
     {
-        $this->status = Check::$CORRECT;
+        $status = Check::$CORRECT;
 
-        foreach( $this->checks as $check ) {
+        foreach( $checks as $check ) {
             if ( !$check->passed ) {
-                $this->status = Check::$WARNING;
-                if ( $check->importance === Check::$ERROR ) {
-                    $this->status = Check::$ERROR;
-                    return;
-                }
+                $status = Check::$WARNING;
+
+                if ( $check->importance === Check::$ERROR ) return Check::$ERROR;
             }
         }
+
+        return $status;
     }
 
     private function display_status_icon( string $status )
@@ -178,22 +161,24 @@ class ChecksProcessor
      */
     public function display_plugin_checks()
     {
+        foreach( $this->checks as $plugin_name => $checks ):
+            $group_status = $this->get_check_status( $checks );
         ?>
             <div id="health-check-debug" class="health-check-accordion">
                 <h3 class="health-check-accordion-heading">
                     <button aria-expanded="false" class="health-check-accordion-trigger" aria-controls="health-check-accordion-block-wp-core" type="button">
                         <span class="icon"></span>
-                        <span class="title" style="display: flex; align-items: center; gap: 0.5rem;"><?php $this->display_status_icon( $this->status ); ?> <?php echo $this->plugin ?></span>
+                        <span class="title" style="display: flex; align-items: center; gap: 0.5rem;"><?php $this->display_status_icon( $group_status ); ?> <?php echo $plugin_name ?></span>
                     </button>
                 </h3>
                 <div id="health-check-accordion-block-wp-core" class="health-check-accordion-panel" hidden="hidden">
                     <table class="widefat striped health-check-table" role="presentation">
                         <tbody>
-                            <?php foreach( $this->checks as $check ): ?>
+                            <?php foreach( $checks as $check ): ?>
                                 <tr>
                                     <td style="display: flex; align-items: center; gap: 0.5rem; min-width: fit-content;">
                                         <?php $this->display_status_icon( $check->passed ? Check::$CORRECT : $check->importance ); ?>
-                                        <span style="font-weight: 800;"><?php echo $check->name; ?></span>
+                                        <span style="font-weight: 800;"><?php echo $check->value; ?></span>
                                     </td>
                                     <?php if( $check->description ): ?>
                                         <td>
@@ -207,5 +192,6 @@ class ChecksProcessor
                 </div>
             </div>
         <?php
+        endforeach;
     }
 }
